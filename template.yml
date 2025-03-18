@@ -1,0 +1,197 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Highly Available VPC with ALB, Security Groups, NAT Gateway, and VPC Endpoints"
+
+Resources:
+    # VPC
+    JuliusPhotoAlbumVPC:
+        Type: AWS::EC2::VPC
+        Properties:
+            CidrBlock: 10.0.0.0/16
+            EnableDnsSupport: true
+            EnableDnsHostnames: true
+            Tags:
+                - Key: Name
+                  Value: JuliusPhotoAlbumVPC
+
+    # Internet Gateway
+    InternetGateway:
+        Type: AWS::EC2::InternetGateway
+        Properties:
+            Tags:
+                - Key: Name
+                  Value: JuliusInternetGateway
+
+    AttachGateway:
+        Type: AWS::EC2::VPCGatewayAttachment
+        Properties:
+            VpcId: !Ref JuliusPhotoAlbumVPC
+            InternetGatewayId: !Ref InternetGateway
+
+    # Elastic IP for NAT Gateway
+    NatGatewayEIP:
+        Type: AWS::EC2::EIP
+        Properties:
+            Domain: vpc
+
+    # NAT Gateway
+    NatGateway:
+        Type: AWS::EC2::NatGateway
+        Properties:
+            AllocationId: !GetAtt NatGatewayEIP.AllocationId
+            SubnetId: !Ref PublicSubnet1
+            Tags:
+                - Key: Name
+                  Value: JuliusNATGateway
+
+    # Public Subnets
+    PublicSubnet1:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref JuliusPhotoAlbumVPC
+            CidrBlock: 10.0.1.0/24
+            AvailabilityZone: !Select [0, !GetAZs ""]
+            MapPublicIpOnLaunch: true
+            Tags:
+                - Key: Name
+                  Value: PublicSubnet1
+
+    PublicSubnet2:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref JuliusPhotoAlbumVPC
+            CidrBlock: 10.0.2.0/24
+            AvailabilityZone: !Select [1, !GetAZs ""]
+            MapPublicIpOnLaunch: true
+            Tags:
+                - Key: Name
+                  Value: PublicSubnet2
+
+    PublicSubnet3:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref JuliusPhotoAlbumVPC
+            CidrBlock: 10.0.3.0/24
+            AvailabilityZone: !Select [2, !GetAZs ""]
+            MapPublicIpOnLaunch: true
+            Tags:
+                - Key: Name
+                  Value: PublicSubnet3
+
+    # Private Subnets
+    PrivateSubnet1:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref JuliusPhotoAlbumVPC
+            CidrBlock: 10.0.4.0/24
+            AvailabilityZone: !Select [0, !GetAZs ""]
+            MapPublicIpOnLaunch: false
+            Tags:
+                - Key: Name
+                  Value: PrivateSubnet1
+
+    PrivateSubnet2:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref JuliusPhotoAlbumVPC
+            CidrBlock: 10.0.5.0/24
+            AvailabilityZone: !Select [1, !GetAZs ""]
+            MapPublicIpOnLaunch: false
+            Tags:
+                - Key: Name
+                  Value: PrivateSubnet2
+
+    PrivateSubnet3:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref JuliusPhotoAlbumVPC
+            CidrBlock: 10.0.6.0/24
+            AvailabilityZone: !Select [2, !GetAZs ""]
+            MapPublicIpOnLaunch: false
+            Tags:
+                - Key: Name
+                  Value: PrivateSubnet3
+
+    # Public Route Table
+    PublicRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId: !Ref JuliusPhotoAlbumVPC
+            Tags:
+                - Key: Name
+                  Value: PublicRouteTable
+
+    PublicRoute:
+        Type: AWS::EC2::Route
+        Properties:
+            RouteTableId: !Ref PublicRouteTable
+            DestinationCidrBlock: 0.0.0.0/0
+            GatewayId: !Ref InternetGateway
+
+    PublicSubnet1RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            SubnetId: !Ref PublicSubnet1
+            RouteTableId: !Ref PublicRouteTable
+
+    PublicSubnet2RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            SubnetId: !Ref PublicSubnet2
+            RouteTableId: !Ref PublicRouteTable
+
+    PublicSubnet3RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            SubnetId: !Ref PublicSubnet3
+            RouteTableId: !Ref PublicRouteTable
+
+    # Private Route Table (Using NAT Gateway)
+    PrivateRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId: !Ref JuliusPhotoAlbumVPC
+            Tags:
+                - Key: Name
+                  Value: PrivateRouteTable
+
+    PrivateRoute:
+        Type: AWS::EC2::Route
+        Properties:
+            RouteTableId: !Ref PrivateRouteTable
+            DestinationCidrBlock: 0.0.0.0/0
+            NatGatewayId: !Ref NatGateway
+
+    PrivateSubnet1RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            SubnetId: !Ref PrivateSubnet1
+            RouteTableId: !Ref PrivateRouteTable
+
+    PrivateSubnet2RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            SubnetId: !Ref PrivateSubnet2
+            RouteTableId: !Ref PrivateRouteTable
+
+    PrivateSubnet3RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            SubnetId: !Ref PrivateSubnet3
+            RouteTableId: !Ref PrivateRouteTable
+
+Outputs:
+    LogicalResourceId:
+        Description: Resources created in this template with their logical IDs
+        Value:
+            Fn::Join:
+                - ", "
+                - - !Sub "PublicSubnet1: ${PublicSubnet1}"
+                  - !Sub "PublicSubnet2: ${PublicSubnet2}"
+                  - !Sub "PrivateSubnet1: ${PrivateSubnet1}"
+                  - !Sub "PrivateSubnet2: ${PrivateSubnet2}"
+                  - !Sub "PrivateSubnet3: ${PrivateSubnet3}"
+                  - !Sub "PublicRouteTable: ${PublicRouteTable}"
+                  - !Sub "PrivateRouteTable: ${PrivateRouteTable}"
+                  - !Sub "InternetGateway: ${InternetGateway}"
+                  - !Sub "NatGateway: ${NatGateway}"
+                  - !Sub "JuliusPhotoAlbumVPC: ${JuliusPhotoAlbumVPC}"
